@@ -1,0 +1,11 @@
+# XuanYi
+*.iml
+.gradle
+local.properties
+.idea
+.DS_Store
+build
+captures
+.externalNativeBuild
+.cxx
+# 注意：不要忽略 .github/
