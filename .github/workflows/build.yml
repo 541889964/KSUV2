@@ -9,10 +9,10 @@ jobs:
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with: { distribution: temurin, java-version: '21' }
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.gradle/caches
@@ -30,10 +30,10 @@ jobs:
           mkdir -p /tmp/logs
           grep -E "^e: |error: |FAILURE|What went wrong|Unresolved|Expecting|Conflicting" manager/build.log > /tmp/logs/errors.txt 2>/dev/null || true
           tail -200 manager/build.log >> /tmp/logs/errors.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with: { name: build-errors, path: /tmp/logs/errors.txt, if-no-files-found: warn }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: success()
         with:
           name: XuanYiKsu
