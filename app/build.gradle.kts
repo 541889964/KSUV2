@@ -5,7 +5,6 @@ plugins {
 android {
     namespace = "com.example.screenagent"
     compileSdk = 34
-    ndkVersion = "26.1.10909125"
     defaultConfig {
         applicationId = "com.example.screenagent"
         minSdk = 26
