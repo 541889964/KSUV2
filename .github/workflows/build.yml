@@ -19,16 +19,19 @@ jobs:
         with:
           gradle-version: 8.7
       - name: List NDKs
-        run: ls $ANDROID_HOME/ndk/ || true
+        run: ls $ANDROID_HOME/ndk/ 2>/dev/null || echo "no ndk"
       - name: Clone llama.cpp
-        run: git clone --depth 1 https://github.com/ggerganov/llama.cpp.git app/src/main/cpp/llama.cpp
-      - name: Install hf tools
-        run: pip install -U huggingface_hub
+        run: |
+          mkdir -p app/src/main/cpp
+          git clone --depth 1 https://github.com/ggerganov/llama.cpp.git app/src/main/cpp/llama.cpp
+          ls app/src/main/cpp/llama.cpp/llama.h
       - name: Download model
         run: |
           mkdir -p app/src/main/assets/models
-          huggingface-cli download Qwen/Qwen2.5-1.5B-Instruct-GGUF qwen2.5-1.5b-instruct-q4_k_m.gguf --local-dir /tmp/m
-          cp /tmp/m/*.gguf app/src/main/assets/models/model.gguf
+          URL="https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf"
+          echo "Downloading $URL"
+          curl -L --fail --retry 3 --connect-timeout 15 -o app/src/main/assets/models/model.gguf "$URL"
+          ls -lh app/src/main/assets/models/
       - name: Build APK
         run: gradle assembleRelease --no-daemon --stacktrace
       - name: Publish Release
