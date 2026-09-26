@@ -28,30 +28,21 @@ jobs:
       - name: Clone llama.cpp
         run: |
           git clone --depth 1 https://github.com/ggerganov/llama.cpp.git app/src/main/cpp/llama.cpp
-          test -f app/src/main/cpp/llama.cpp/CMakeLists.txt
-          test -f app/src/main/cpp/llama.cpp/llama.h
       - run: pip install -U "huggingface_hub[hf_transfer]"
       - name: Download model
         env:
           HF_HUB_ENABLE_HF_TRANSFER: 1
         run: |
           mkdir -p app/src/main/assets/models
-          python3 -c "
-from huggingface_hub import hf_hub_download
-import shutil, os
-p = hf_hub_download(repo_id='Qwen/Qwen2.5-1.5B-Instruct-GGUF', filename='qwen2.5-1.5b-instruct-q4_k_m.gguf', local_dir='/tmp/m')
-shutil.copy(p, 'app/src/main/assets/models/model.gguf')
-print('Model size:', os.path.getsize('app/src/main/assets/models/model.gguf'))
-"
+          huggingface-cli download Qwen/Qwen2.5-1.5B-Instruct-GGUF qwen2.5-1.5b-instruct-q4_k_m.gguf --local-dir /tmp/m
+          cp /tmp/m/*.gguf app/src/main/assets/models/model.gguf
           ls -lh app/src/main/assets/models/
-      - name: Build APK
-        run: gradle assembleRelease --no-daemon --stacktrace
+      - run: gradle assembleRelease --no-daemon --stacktrace
       - name: Collect APK
         if: always()
         run: |
           mkdir -p release
           find app/build/outputs/apk/release -name "*.apk" -exec cp {} release/ScreenAgent.apk \; 2>/dev/null || true
-          ls -lh release/
       - name: Split
         if: hashFiles('release/ScreenAgent.apk') != ''
         run: |
@@ -61,7 +52,6 @@ print('Model size:', os.path.getsize('app/src/main/assets/models/model.gguf'))
             zip -s 1500m ScreenAgent.zip ScreenAgent.apk
             rm ScreenAgent.apk
           fi
-          ls -lh
       - uses: softprops/action-gh-release@v2
         if: hashFiles('release/*') != ''
         with:
