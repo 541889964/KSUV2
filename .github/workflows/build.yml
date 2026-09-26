@@ -11,39 +11,60 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
-      - name: Free disk space
-        run: sudo rm -rf /usr/share/dotnet /opt/ghc || true
-      - uses: actions/setup-java@v4
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.7
-      - name: Install NDK
+      - name: Detect NDK
         run: |
-          yes | sdkmanager --install "ndk;26.1.10909125" > /dev/null 2>&1
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "=== Available NDK versions ==="
+          ls "$ANDROID_HOME/ndk/" 2>/dev/null || echo "no ndk dir"
+          NDK=$(ls "$ANDROID_HOME/ndk/" 2>/dev/null | sort -V | tail -1)
+          if [ -z "$NDK" ]; then
+            echo "No NDK found, installing 26.1.10909125..."
+            yes | sdkmanager --install "ndk;26.1.10909125" 2>&1 | tail -3 || true
+            NDK="26.1.10909125"
+          fi
+          echo "Picked NDK: $NDK"
           echo "sdk.dir=$ANDROID_HOME" > local.properties
-          echo "ndk.dir=$ANDROID_HOME/ndk/26.1.10909125" >> local.properties
+          echo "ndk.dir=$ANDROID_HOME/ndk/$NDK" >> local.properties
+          echo "ndkVersion=$NDK" >> local.properties
+          cat local.properties
+          echo "NDK_VERSION=$NDK" >> $GITHUB_ENV
       - name: Clone llama.cpp
         run: |
           git clone --depth 1 https://github.com/ggerganov/llama.cpp.git app/src/main/cpp/llama.cpp
+          test -f app/src/main/cpp/llama.cpp/CMakeLists.txt
+          test -f app/src/main/cpp/llama.cpp/llama.h
       - run: pip install -U "huggingface_hub[hf_transfer]"
       - name: Download model
         env:
           HF_HUB_ENABLE_HF_TRANSFER: 1
         run: |
           mkdir -p app/src/main/assets/models
-          huggingface-cli download Qwen/Qwen2.5-1.5B-Instruct-GGUF qwen2.5-1.5b-instruct-q4_k_m.gguf --local-dir /tmp/m
-          cp /tmp/m/*.gguf app/src/main/assets/models/model.gguf
+          python3 -c "
+from huggingface_hub import hf_hub_download
+import shutil
+p = hf_hub_download(repo_id='Qwen/Qwen2.5-1.5B-Instruct-GGUF', filename='qwen2.5-1.5b-instruct-q4_k_m.gguf', local_dir='/tmp/m')
+shutil.copy(p, 'app/src/main/assets/models/model.gguf')
+"
           ls -lh app/src/main/assets/models/
-      - run: gradle assembleRelease --no-daemon --stacktrace
+      - name: Build APK
+        run: gradle assembleRelease --no-daemon --stacktrace
       - name: Collect APK
         if: always()
         run: |
           mkdir -p release
           find app/build/outputs/apk/release -name "*.apk" -exec cp {} release/ScreenAgent.apk \; 2>/dev/null || true
-      - name: Split
+          ls -lh release/ 2>/dev/null || echo "no apk"
+      - name: Split if too large
         if: hashFiles('release/ScreenAgent.apk') != ''
         run: |
           cd release
@@ -52,6 +73,7 @@ jobs:
             zip -s 1500m ScreenAgent.zip ScreenAgent.apk
             rm ScreenAgent.apk
           fi
+          ls -lh
       - uses: softprops/action-gh-release@v2
         if: hashFiles('release/*') != ''
         with:
